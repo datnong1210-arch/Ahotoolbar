@@ -614,11 +614,121 @@ class CustomToolbar {
         wp_send_json_success($events);
     }
     
-    public function ajax_sync_fav_cards() { check_ajax_referer('toolbar_nonce','nonce'); $u=get_current_user_id(); if(!$u) wp_send_json_error(); $c=json_decode(stripslashes($_POST['cards']),true); update_user_meta($u,'ahotoolbar_favorite_flashcards', $c); wp_send_json_success(); }
-    public function save_note() { check_ajax_referer('toolbar_nonce','nonce'); $n=sanitize_textarea_field($_POST['note']); $u=get_current_user_id(); if($u) update_user_meta($u,'custom_toolbar_note',$n); else { if(!session_id()) session_start(); update_option('guest_note_'.session_id(),$n); } wp_send_json_success('Lưu thành công!'); }
-    public function get_note() { check_ajax_referer('toolbar_nonce','nonce'); $u=get_current_user_id(); $n=$u?get_user_meta($u,'custom_toolbar_note',true):(session_id()?get_option('guest_note_'.session_id(),''):''); wp_send_json_success($n); }
-    public function ajax_toggle_favorite() { check_ajax_referer('toolbar_nonce','nonce'); $u=get_current_user_id(); if(!$u) wp_send_json_error(); $c=intval($_POST['course_id']); $a=$_POST['do_action']; $f=get_user_meta($u,'ahotoolbar_favorite_courses',true); if(!is_array($f))$f=[]; if($a==='add'&&!in_array($c,$f))$f[]=$c; else if($a==='remove')$f=array_diff($f,[$c]); update_user_meta($u,'ahotoolbar_favorite_courses',array_values($f)); wp_send_json_success(); }
-    public function ajax_get_favorites_details() { check_ajax_referer('toolbar_nonce','nonce'); $ids=isset($_POST['ids'])?array_map('intval',$_POST['ids']):[]; if(!$ids) wp_send_json_success([]); global $wpdb; $posts=get_posts(['post_type'=>'any','include'=>$ids,'numberposts'=>-1]); $d=[]; foreach($posts as $p){ $url=get_permalink($p->ID); if($p->post_type!=='post'&&$p->post_type!=='page'){ $pid=$wpdb->get_var($wpdb->prepare("SELECT ID FROM $wpdb->posts WHERE post_content LIKE %s LIMIT 1",'%[ahovn_lms_course id="'.$p->ID.'"%')); if($pid) $url=get_permalink($pid); } $d[]=['id'=>$p->ID,'title'=>$p->post_title,'url'=>$url]; } wp_send_json_success($d); }
+    public function ajax_sync_fav_cards() { 
+        check_ajax_referer('toolbar_nonce','nonce'); 
+        $u = get_current_user_id(); 
+        if (!$u) wp_send_json_error(); 
+        
+        if (!isset($_POST['cards'])) {
+            wp_send_json_error('Missing cards data');
+        }
+        
+        $c = json_decode(stripslashes($_POST['cards']), true); 
+        if (!is_array($c)) {
+            wp_send_json_error('Invalid cards data');
+        }
+        
+        update_user_meta($u, 'ahotoolbar_favorite_flashcards', $c); 
+        wp_send_json_success(); 
+    }
+    public function save_note() { 
+        check_ajax_referer('toolbar_nonce','nonce'); 
+        
+        if (!isset($_POST['note'])) {
+            wp_send_json_error('Missing note data');
+        }
+        
+        $n = sanitize_textarea_field($_POST['note']); 
+        $u = get_current_user_id(); 
+        
+        if ($u) {
+            update_user_meta($u, 'custom_toolbar_note', $n); 
+        } else { 
+            if (!session_id()) session_start(); 
+            update_option('guest_note_'.session_id(), $n); 
+        } 
+        
+        wp_send_json_success('Lưu thành công!'); 
+    }
+    public function get_note() { 
+        check_ajax_referer('toolbar_nonce','nonce'); 
+        $u = get_current_user_id(); 
+        
+        if ($u) {
+            $n = get_user_meta($u, 'custom_toolbar_note', true);
+        } else {
+            $n = session_id() ? get_option('guest_note_'.session_id(), '') : '';
+        }
+        
+        wp_send_json_success($n); 
+    }
+    public function ajax_toggle_favorite() { 
+        check_ajax_referer('toolbar_nonce','nonce'); 
+        $u = get_current_user_id(); 
+        if (!$u) wp_send_json_error(); 
+        
+        if (!isset($_POST['course_id']) || !isset($_POST['do_action'])) {
+            wp_send_json_error('Missing required parameters');
+        }
+        
+        $c = intval($_POST['course_id']); 
+        $a = $_POST['do_action'];
+        
+        // Validate action
+        if (!in_array($a, array('add', 'remove'))) {
+            wp_send_json_error('Invalid action');
+        }
+        
+        $f = get_user_meta($u, 'ahotoolbar_favorite_courses', true); 
+        if (!is_array($f)) $f = array(); 
+        
+        if ($a === 'add' && !in_array($c, $f)) {
+            $f[] = $c; 
+        } else if ($a === 'remove') {
+            $f = array_diff($f, array($c));
+        }
+        
+        update_user_meta($u, 'ahotoolbar_favorite_courses', array_values($f)); 
+        wp_send_json_success(); 
+    }
+    public function ajax_get_favorites_details() { 
+        check_ajax_referer('toolbar_nonce','nonce'); 
+        
+        $ids = isset($_POST['ids']) ? array_map('intval', $_POST['ids']) : array(); 
+        
+        if (!$ids) {
+            wp_send_json_success(array());
+            return;
+        }
+        
+        global $wpdb; 
+        $posts = get_posts(array(
+            'post_type' => 'any',
+            'include' => $ids,
+            'numberposts' => -1
+        )); 
+        
+        $d = array(); 
+        foreach ($posts as $p) { 
+            $url = get_permalink($p->ID); 
+            
+            if ($p->post_type !== 'post' && $p->post_type !== 'page') { 
+                $pid = $wpdb->get_var($wpdb->prepare(
+                    "SELECT ID FROM $wpdb->posts WHERE post_content LIKE %s LIMIT 1",
+                    '%[ahovn_lms_course id="'.$p->ID.'"%'
+                )); 
+                if ($pid) $url = get_permalink($pid); 
+            } 
+            
+            $d[] = array(
+                'id' => $p->ID,
+                'title' => $p->post_title,
+                'url' => $url
+            ); 
+        } 
+        
+        wp_send_json_success($d); 
+    }
     public function format_guide_content($c) { if(!$c) return '<p>Chưa có hướng dẫn.</p>'; return nl2br(esc_html($c)); }
     public function add_admin_menu() { add_options_page('AhoToolbar Settings', 'AhoToolbar', 'manage_options', 'ahotoolbar-settings', array($this, 'admin_page')); }
     
