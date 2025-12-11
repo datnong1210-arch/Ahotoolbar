@@ -600,7 +600,7 @@ class CustomToolbar {
                 f.css({top:sp.top-$(window).scrollTop(), left:sp.left-$(window).scrollLeft()}).animate({top:ep.top, left:ep.left, opacity:0},800,function(){ $(this).remove(); });
             }
         });
-        var toolbar_ajax = { ajax_url: '<?php echo admin_url('admin-ajax.php'); ?>', nonce: '<?php echo wp_create_nonce('toolbar_nonce'); ?>' };
+        const toolbar_ajax = { ajax_url: '<?php echo admin_url('admin-ajax.php'); ?>', nonce: '<?php echo wp_create_nonce('toolbar_nonce'); ?>' };
         </script>
         <?php
     }
@@ -672,7 +672,7 @@ class CustomToolbar {
         }
         
         $c = intval($_POST['course_id']); 
-        $a = $_POST['do_action'];
+        $a = sanitize_text_field($_POST['do_action']);
         
         // Validate action
         if (!in_array($a, array('add', 'remove'))) {
